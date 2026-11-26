@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>문장 몬스터 배틀</title>
+<link href="https://fonts.googleapis.com/css2?family=Jua&family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+/* VOICE: 밝고 신나는 RPG 배틀, 설명은 친절하게
+   IDEA: 낮의 풀밭 전투 화면 — 요약 문장이 곧 공격 주문
+   PICTURE: 하늘과 언덕 위의 몬스터, 체력 바, 맞으면 흔들리고 쓰러짐
+   COLOUR and TYPE: 하늘색 + 풀색 + 토마토 빨강 포인트, 굵은 남색 외곽선; Jua + Noto Sans KR
+   LAYOUT: 상단 HUD, 전투 장면, 아래 글 카드 → 조건 → 주문 입력 한 열 */
+:root{color-scheme:light;--ink:#1d2440;--sky:#bfe6ff;--sky2:#e9f7ff;--grass:#5cb85c;--grass2:#3f9a48;--red:#ff5a4e;--gold:#ffc83d;--paper:#fff;--soft:#5d6684;--ok:#1f9d55;--okbg:#e6f7ec;--nobg:#ffecea;--hl:#fff3c4}
+*{box-sizing:border-box;min-width:0}
+body{margin:0;background:linear-gradient(var(--sky2),#f4fbff 400px,#f7f9fc);color:var(--ink);font:16px/1.6 "Noto Sans KR",system-ui,sans-serif;overflow-x:clip}
+.wrap{max-width:800px;margin:0 auto;padding:clamp(16px,4vw,36px) max(4vw,12px) 60px}
+h1,h2,.j{font-family:"Jua","Noto Sans KR",sans-serif;font-weight:400}
+h1{font-size:clamp(30px,6vw,46px);line-height:1.1;margin:0 0 4px}
+h2{font-size:26px;margin:0 0 4px}
+.sub{color:var(--soft);margin:0 0 16px}
+.hud{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.pill{background:#fff;border:3px solid var(--ink);border-radius:999px;padding:4px 14px;font:400 18px "Jua","Noto Sans KR";white-space:nowrap}
+.hearts{font-size:22px;letter-spacing:2px}
+.scene{position:relative;height:250px;border:4px solid var(--ink);border-radius:18px;overflow:hidden;background:linear-gradient(var(--sky) 0 62%,var(--grass) 62% 100%)}
+.scene svg{position:absolute;inset:0;width:100%;height:100%}
+.hp{position:absolute;top:12px;right:12px;width:min(46%,260px);background:#fff;border:3px solid var(--ink);border-radius:12px;padding:6px 10px}
+.hp .nm{font:400 18px "Jua","Noto Sans KR";display:flex;justify-content:space-between}
+.hp .track{height:14px;border:2px solid var(--ink);border-radius:8px;background:#eee;overflow:hidden}
+.hp .fill{height:100%;background:var(--red);transition:width .6s}
+.ko{position:absolute;left:50%;top:38%;transform:translate(-50%,-50%) rotate(-8deg);font:400 64px "Jua";color:var(--gold);-webkit-text-stroke:3px var(--ink);display:none}
+.scene.hit .mon{animation:shake .5s}
+.scene.dead .mon{transition:transform .6s,opacity .6s;transform:translateY(40px) scale(.7);opacity:0}
+.scene.dead .ko{display:block;animation:pop .4s}
+.scene.ouch{animation:shake .45s}
+.flash{position:absolute;inset:0;background:var(--red);opacity:0;pointer-events:none}
+.scene.ouch .flash{animation:fl .45s}
+@keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-12px)}40%{transform:translateX(10px)}60%{transform:translateX(-7px)}80%{transform:translateX(5px)}}
+@keyframes fl{0%{opacity:.35}100%{opacity:0}}
+@keyframes pop{from{transform:translate(-50%,-50%) scale(.3)}to{transform:translate(-50%,-50%) rotate(-8deg) scale(1)}}
+.card{background:var(--paper);border:3px solid var(--ink);border-radius:16px;padding:clamp(14px,3vw,22px);margin-top:14px;box-shadow:0 6px 0 var(--ink)}
+.tag{display:inline-block;background:var(--gold);border:2px solid var(--ink);border-radius:8px;padding:0 10px;font:400 16px "Jua","Noto Sans KR"}
+.passage{background:var(--sky2);border:2px solid var(--ink);border-radius:10px;padding:12px 14px;margin:10px 0;font-size:16.5px;line-height:1.75}
+.starter{font-weight:700;margin:12px 0 0;font-size:17px}
+.blank{display:inline-block;min-width:150px;border-bottom:3px solid var(--red);color:var(--red)}
+.cond{margin:12px 0 0;padding:10px 14px;border:2px dashed var(--soft);border-radius:10px;font-size:15px}
+.cond b{display:block}
+.cond ul{margin:2px 0 0;padding-left:18px}
+.cond li.hit{color:var(--ok)}.cond li.miss{color:var(--red);font-weight:700}
+label.a{display:block;margin:16px 0 6px;font:400 19px "Jua","Noto Sans KR"}
+.row{display:flex;gap:8px;flex-wrap:wrap}
+textarea{flex:1 1 300px;font:16px/1.5 "Noto Sans KR";padding:10px 12px;border:3px solid var(--ink);border-radius:12px;min-height:76px;resize:vertical;color:var(--ink)}
+textarea:focus{outline:none;border-color:var(--red)}
+.wc{font-size:14px;color:var(--soft);margin-top:6px}.wc.bad{color:var(--red);font-weight:700}
+button.b{font:400 20px "Jua","Noto Sans KR";min-height:52px;padding:0 20px;border-radius:12px;border:3px solid var(--ink);cursor:pointer;background:var(--red);color:#fff;box-shadow:0 4px 0 var(--ink)}
+button.b:active{transform:translateY(3px);box-shadow:0 1px 0 var(--ink)}
+button.g{background:#fff;color:var(--ink)}
+button:focus-visible{outline:3px solid var(--gold);outline-offset:3px}
+.fb{margin-top:12px;border-radius:12px;padding:12px 14px;border:2px solid var(--ink)}
+.fb.no{background:var(--nobg)}.fb.ok{background:var(--okbg)}
+.fb h3{margin:0 0 4px;font:400 21px "Jua","Noto Sans KR"}
+.fb ul{margin:4px 0 0;padding-left:20px}
+.hintbox{margin-top:8px;padding:8px 12px;border-radius:8px;background:var(--hl);font-size:15px}
+.model{margin-top:8px;padding:8px 12px;border-radius:8px;background:#fff;border:2px dashed var(--red)}
+.nav{display:flex;justify-content:space-between;gap:8px;margin-top:16px;flex-wrap:wrap}
+.steps{list-style:none;margin:12px 0 0;padding:0;counter-reset:s}
+.steps>li{counter-increment:s;position:relative;padding:0 0 14px 46px}
+.steps>li::before{content:counter(s);position:absolute;left:0;top:0;width:34px;height:34px;border-radius:50%;background:var(--gold);border:2px solid var(--ink);font:400 18px "Jua";display:grid;place-items:center}
+.steps b.t{display:block;font:400 19px "Jua","Noto Sans KR"}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.chip{border:2px solid var(--ink);background:var(--hl);border-radius:8px;padding:2px 9px;font-weight:700;position:relative}
+.chip small{position:absolute;top:-10px;right:-6px;background:var(--red);color:#fff;border-radius:10px;font-size:11px;padding:0 5px;line-height:16px}
+.x{color:var(--red);font-weight:700}
+.stars{font-size:54px;letter-spacing:6px;text-align:center}
+.res td{padding:6px 4px;border-bottom:1px solid #dde;vertical-align:top}
+@media(prefers-reduced-motion:reduce){.scene.hit .mon,.scene.ouch,.scene.ouch .flash,.scene.dead .ko{animation:none}.hp .fill,.scene.dead .mon{transition:none}}
+@media(max-width:600px){.scene{height:210px}.ko{font-size:48px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>⚔️ 문장 몬스터 배틀</h1>
+  <p class="sub">글을 읽고 <b>계속적 용법의 관계대명사(, which / , who)</b>로 요약 문장을 완성하면 몬스터에게 공격이 들어가요. 몬스터 4마리를 모두 쓰러뜨리세요!</p>
+  <div id="app"></div>
+</div>
+<script>
+{
+const M=[
+ {mon:'스케치 슬라임',col:'#7cc8ff',horn:false,
+  text:'Minji loves drawing. Every week, she draws pictures of her cat, Coco. She draws Coco sleeping, eating, and playing. Then she puts the pictures in envelopes. She sends them to her grandmother in Busan. Her grandmother puts them on her wall.',
+  starter:'Minji draws pictures of her cat,',verb:'send',rel:'which',forms:['sends'],wrong:['send','sending','sended','sent'],need:[['grandmother','grandma']],
+  model:'Minji draws pictures of her cat, which she sends to her grandmother.',
+  hint:'선행사는 사물(pictures) → which. 매주 하는 일이라 현재형, 주어 she → sends. which she sends to ...'},
+ {mon:'로봇 고블린',col:'#a0e070',horn:true,
+  text:'Mr. Han is a retired science teacher. He lives next to our school. Every Saturday, children from the village visit his house. He shows them how to make simple robots. He also teaches them science for free. The children love his class.',
+  starter:'Mr. Han is a retired teacher,',verb:'teach',rel:'who',forms:['teaches'],wrong:['teach','teaching','teached','taught'],need:[['children','kids','students']],
+  model:'Mr. Han is a retired teacher, who teaches science to village children.',
+  hint:'선행사는 사람(Mr. Han) → who. 주어가 3인칭 단수이고 현재 → teaches. 누구에게? village children'},
+ {mon:'페트병 골렘',col:'#ffb347',horn:false,
+  text:"Jun's family collects plastic bottles every week. They don't throw them away. Jun's mother washes them and cuts them. Then the family makes them into flower pots. Now their garden is full of colorful pots.",
+  starter:"Jun's family collects plastic bottles,",verb:'make',rel:'which',forms:['make'],wrong:['makes','making','maked','made'],need:[['pots','pot']],
+  model:"Jun's family collects plastic bottles, which they make into flower pots.",
+  hint:'선행사는 사물(bottles) → which. family는 they로 받아요 → they make. make A into B: A를 B로 만들다'},
+ {mon:'수학 드래곤',col:'#c792ea',horn:true,
+  text:"Sora has an older brother, Taemin. He is a high school student, and he is very good at math. Every evening after dinner, he sits next to Sora. He helps her with her math homework. Thanks to him, Sora's math grade went up.",
+  starter:'Sora has an older brother,',verb:'help',rel:'who',forms:['helps'],wrong:['help','helping','helped'],need:[['homework','math']],
+  model:'Sora has an older brother, who helps her with math homework.',
+  hint:'선행사는 사람(brother) → who. 현재형, 3인칭 단수 → helps. help + 사람 + with + 일'}
+];
+const RELS=['which','who','whom','whose','that','what'];
+const st=M.map(()=>({ans:'',done:false,wrong:0,checks:null,fb:''}));
+let view='intro',cur=0,hearts=5;
+const $=id=>document.getElementById(id);
+const esc=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const clean=s=>s.trim().replace(/\s+/g,' ').replace(/[‘’]/g,"'");
+const wl=s=>s.trim().split(/\s+/).filter(Boolean);
+
+function split(q,raw){
+  const s=clean(raw),base=q.starter.replace(/,$/,'').toLowerCase();
+  const has=s.toLowerCase().startsWith(base);
+  let rest=has?s.slice(base.length):s, comma=false;
+  if(has){rest=rest.trim();if(rest.startsWith(',')){comma=true;rest=rest.slice(1).trim()}}
+  else{const i=s.search(/,\s*(which|who|that|whom)\b/i);if(i>=0){comma=true;rest=s.slice(i+1).trim()}}
+  return {s,has,comma,blank:rest.replace(/[.!?]+$/,'').trim()};
+}
+function grade(q,raw){
+  const p=split(q,raw), bw=wl(p.blank), lw=bw.map(x=>x.toLowerCase().replace(/[.,!?]/g,''));
+  const first=lw[0]||'';
+  const relOK=p.comma&&first===q.rel;
+  const vOK=lw.some(x=>q.forms.includes(x)), vWrong=lw.find(x=>q.wrong.includes(x));
+  const contr=/'/.test(p.blank);
+  const six=bw.length===6&&!contr;
+  const content=q.need.every(g=>g.some(x=>lw.includes(x)));
+  const full=p.has&&/^[A-Z]/.test(p.s)&&/\.$/.test(p.s);
+  const c={rel:relOK,verb:vOK,six,full,content};
+  const m=[];
+  if(p.has&&!p.comma)m.push('계속적 용법은 선행사 뒤에 <b>콤마(,)</b>를 찍고 관계대명사를 써요.');
+  if(first==='that')m.push('계속적 용법(콤마 뒤)에는 <b>that</b>을 쓸 수 없어요.');
+  else if(!RELS.includes(first))m.push('빈칸은 관계대명사로 시작해야 해요.');
+  else if(first!==q.rel)m.push(`선행사가 ${q.rel==='who'?'사람':'사물'}이에요. ${esc(first)} 대신 무엇을 써야 할까요?`);
+  if(!vOK)m.push(vWrong?`<b>${esc(vWrong)}</b>는 알맞은 형태가 아니에요. 글의 시제와 주어를 확인해요.`:`${q.verb}를 알맞은 형태로 써야 해요.`);
+  if(contr)m.push('축약형은 쓸 수 없어요.');
+  else if(bw.length!==6)m.push(`빈칸이 지금 ${bw.length}단어예요. 콤마 뒤 빈칸을 정확히 6단어로!`);
+  if(!content)m.push('글의 핵심 내용이 빠졌어요. 누구에게, 무엇으로 했는지 다시 읽어 봐요.');
+  if(!p.has)m.push(`주어진 앞부분 “${esc(q.starter)}”부터 전체 문장을 써야 해요.`);
+  else if(!full)m.push('전체 문장으로: 대문자로 시작하고 마침표로 끝내요.');
+  return {c,m,ok:Object.values(c).every(Boolean),blankN:bw.length};
+}
+
+function monster(q,i){
+  const c=q.col;
+  const horns=q.horn?`<path d="M-48,-58 L-62,-104 L-26,-70Z M48,-58 L62,-104 L26,-70Z" fill="#fff" stroke="#1d2440" stroke-width="5" stroke-linejoin="round"/>`:'';
+  const antenna=i===1?`<line x1="0" y1="-78" x2="0" y2="-110" stroke="#1d2440" stroke-width="5"/><circle cx="0" cy="-114" r="9" fill="#ff5a4e" stroke="#1d2440" stroke-width="4"/>`:'';
+  const wings=i===3?`<path d="M-70,-10 Q-140,-70 -120,10 Q-100,0 -70,20Z M70,-10 Q140,-70 120,10 Q100,0 70,20Z" fill="${c}" stroke="#1d2440" stroke-width="5"/>`:'';
+  return `<g class="mon" style="transform-box:fill-box;transform-origin:center"><g transform="translate(560,170)">
+   <ellipse cx="0" cy="58" rx="90" ry="14" fill="#000" opacity=".18"/>${wings}${horns}${antenna}
+   <path d="M-82,40 Q-92,-80 0,-84 Q92,-80 82,40 Q60,58 0,58 Q-60,58 -82,40Z" fill="${c}" stroke="#1d2440" stroke-width="6"/>
+   <path d="M-56,-40 Q-40,-66 -10,-70" stroke="#fff" stroke-width="8" fill="none" stroke-linecap="round" opacity=".6"/>
+   <circle cx="-30" cy="-22" r="18" fill="#fff" stroke="#1d2440" stroke-width="5"/><circle cx="30" cy="-22" r="18" fill="#fff" stroke="#1d2440" stroke-width="5"/>
+   <circle cx="-26" cy="-19" r="8" fill="#1d2440"/><circle cx="34" cy="-19" r="8" fill="#1d2440"/>
+   <path d="M-46,-48 L-14,-38 M46,-48 L14,-38" stroke="#1d2440" stroke-width="6" stroke-linecap="round"/>
+   <path d="M-34,16 Q0,40 34,16Z" fill="#1d2440"/><path d="M-22,19 L-16,29 L-10,21 M10,21 L16,29 L22,19" fill="#fff"/>
+  </g></g>`;
+}
+function hero(){
+  return `<g transform="translate(150,190)"><ellipse cx="0" cy="40" rx="60" ry="11" fill="#000" opacity=".15"/>
+   <rect x="-34" y="-30" width="68" height="70" rx="20" fill="#ff5a4e" stroke="#1d2440" stroke-width="6"/>
+   <circle cx="0" cy="-58" r="34" fill="#ffe0bd" stroke="#1d2440" stroke-width="6"/>
+   <path d="M-34,-64 Q-30,-100 0,-96 Q30,-100 34,-64 Q10,-80 -34,-64Z" fill="#1d2440"/>
+   <circle cx="-11" cy="-56" r="5" fill="#1d2440"/><circle cx="13" cy="-56" r="5" fill="#1d2440"/>
+   <path d="M-8,-42 Q2,-36 12,-42" stroke="#1d2440" stroke-width="4" fill="none" stroke-linecap="round"/>
+   <g transform="translate(46,-6) rotate(-35)"><rect x="-6" y="-80" width="12" height="80" fill="#ffc83d" stroke="#1d2440" stroke-width="4"/><path d="M-6,-80 L0,-98 L6,-80Z" fill="#ffe0bd" stroke="#1d2440" stroke-width="4"/><rect x="-14" y="-4" width="28" height="10" rx="3" fill="#1d2440"/></g></g>`;
+}
+function scene(i,dead){
+  const q=M[i];
+  return `<div class="scene ${dead?'dead':''}" id="sc"><svg viewBox="0 0 720 250" preserveAspectRatio="xMidYMax slice" aria-hidden="true">
+   <circle cx="90" cy="50" r="26" fill="#fff6c2"/><g fill="#fff" opacity=".9"><ellipse cx="300" cy="50" rx="46" ry="16"/><ellipse cx="330" cy="40" rx="30" ry="16"/><ellipse cx="470" cy="70" rx="36" ry="12"/></g>
+   <path d="M0,160 Q180,120 360,158 T720,150 L720,250 L0,250Z" fill="#6cc46a"/><path d="M0,190 Q240,170 480,196 T720,186 L720,250 L0,250Z" fill="#4fae52"/>
+   ${hero()}${monster(q,i)}</svg>
+   <div class="hp"><div class="nm"><span>${q.mon}</span><span id="hpn">${dead?0:1}/1</span></div><div class="track"><div class="fill" id="hpf" style="width:${dead?0:100}%"></div></div></div>
+   <div class="ko">K.O.!</div><div class="flash"></div></div>`;
+}
+function hud(){
+  return `<div class="hud"><span class="pill">STAGE ${Math.min(cur+1,4)} / 4</span><span class="pill hearts" aria-label="남은 하트 ${hearts}개">${'❤️'.repeat(hearts)}${'🤍'.repeat(5-hearts)}</span></div>`;
+}
+
+function render(){({intro,battle,result})[view]();}
+
+function intro(){
+  const ch=['which','her','uncle','bought','for','her'];
+  $('app').innerHTML=`<div class="card"><span class="tag">튜토리얼 · 공격 주문 만드는 법</span>
+   <div class="passage">Emma has a yellow bike. She rides it to school every day. She also rides it to the park on weekends. Her uncle bought it for her last birthday. She loves it very much.</div>
+   <div class="cond"><b>&lt;조건&gt;</b><ul><li>계속적 용법의 관계대명사로 시작할 것.</li><li>buy를 사용하고, 필요하면 단어의 형태를 바꿀 것.</li><li>빈칸을 6단어로 쓸 것.</li><li>전체 문장을 쓸 것.</li></ul></div>
+   <p class="starter">→ Emma rides a yellow bike, <span class="blank">which her uncle bought for her</span>.</p>
+   <ol class="steps">
+    <li><b class="t">글에서 요약할 내용 찾기</b>노란 자전거는 삼촌이 생일 선물로 사 준 것이에요.</li>
+    <li><b class="t">관계대명사 고르기</b>선행사가 사물(a yellow bike)이면 <b>which</b>, 사람이면 <b>who</b>. 계속적 용법은 <b>콤마(,) 뒤</b>에 쓰고, <b>that은 쓸 수 없어요</b>.</li>
+    <li><b class="t">동사 형태 바꾸기</b>사 준 건 지난 생일, 과거의 일 → buy – <b>bought</b></li>
+    <li><b class="t">빈칸 6단어 세기</b>앞부분(Emma rides a yellow bike,)은 세지 않아요.
+     <div class="chips">${ch.map((w,i)=>`<span class="chip">${w}<small>${i+1}</small></span>`).join('')}</div></li>
+    <li><b class="t">전체 문장으로 쓰기</b>Emma rides a yellow bike, which her uncle bought for her.
+     <br><span class="x">✗</span> Emma rides a yellow bike <u>that</u> her uncle bought for her. (계속적 용법 아님)
+     <br><span class="x">✗</span> ..., which her uncle <u>buy</u> for her. (형태 안 바꿈)
+     <br><span class="x">✗</span> which her uncle bought for her (앞부분 없이 빈칸만 씀)</li>
+   </ol>
+   <p style="color:var(--soft);font-size:14px">하트는 5개예요. 주문이 틀리면 몬스터에게 반격당해 하트가 줄어요. 한 번 틀리면 힌트, 두 번 틀리면 정답이 나와요.</p>
+   <div class="nav" style="justify-content:flex-end"><button class="b" id="go">배틀 시작! ⚔️</button></div></div>`;
+  $('go').onclick=()=>{view='battle';render();window.scrollTo({top:0})};
+}
+
+function battle(){
+  const q=M[cur],s=st[cur],ck=s.checks;
+  const li=(k,t)=>`<li class="${ck?(ck[k]?'hit':'miss'):''}">${t}</li>`;
+  $('app').innerHTML=hud()+scene(cur,s.done)+`<div class="card">
+   <span class="tag">STAGE ${cur+1} · ${q.mon} 등장!</span>
+   <p style="margin:8px 0 0">다음 글을 읽고, 글의 내용을 요약한 문장을 &lt;조건&gt;에 맞게 하나의 완전한 문장으로 쓰세요.</p>
+   <div class="passage">${esc(q.text)}</div>
+   <div class="cond"><b>&lt;조건&gt;</b><ul>
+    ${li('rel','계속적 용법의 관계대명사로 시작할 것.')}
+    ${li('verb',`${q.verb}를 사용하고, 필요하면 단어의 형태를 바꿀 것.`)}
+    ${li('six','빈칸을 6단어로 쓸 것.')}
+    ${li('full','전체 문장을 쓸 것.')}
+    ${li('content','글의 내용을 요약할 것.')}</ul></div>
+   <p class="starter">→ ${esc(q.starter)} <span class="blank">${s.done?esc(split(q,s.ans).blank):'&nbsp;'}</span>.</p>
+   ${s.done?`<div class="fb ok"><h3>💥 공격 성공! ${q.mon} 쓰러짐!</h3><p style="margin:0">${esc(s.ans)}</p></div>
+     <div class="nav" style="justify-content:flex-end"><button class="b" id="next">${cur<3?'다음 몬스터로 →':'결과 보기 🏆'}</button></div>`:
+   `<label class="a" for="in">🪄 공격 주문 (전체 문장)</label>
+   <div class="row"><textarea id="in" autocomplete="off" autocapitalize="sentences" spellcheck="false" placeholder="${esc(q.starter)} ...">${esc(s.ans)}</textarea></div>
+   <div class="wc" id="wc"></div>
+   <div class="nav" style="justify-content:flex-end"><button class="b" id="atk">공격! ⚔️</button></div>
+   <div id="fb">${s.fb}</div>`}
+  </div>`;
+  if(s.done){$('next').onclick=()=>{if(cur<3){cur++;view='battle'}else view='result';render();window.scrollTo({top:0})};return}
+  const inp=$('in');
+  const wc=()=>{if(!inp.value.trim()){$('wc').textContent='';return}const p=split(q,inp.value),n=wl(p.blank).length;
+    $('wc').textContent=p.has?`빈칸(콤마 뒤) 단어 수: ${n} / 6`:'앞부분을 주어진 대로 먼저 써 주세요.';$('wc').className='wc'+((!p.has||n!==6)?' bad':'')};
+  inp.oninput=wc;wc();
+  inp.onkeydown=e=>{if(e.key==='Enter'){e.preventDefault();attack()}};
+  $('atk').onclick=attack;
+}
+
+function attack(){
+  const q=M[cur],s=st[cur],v=$('in').value;
+  if(!v.trim()){$('wc').textContent='먼저 주문을 입력하세요.';$('wc').className='wc bad';return}
+  const r=grade(q,v);s.ans=clean(v);s.checks=r.c;
+  if(r.ok){
+    s.done=true;s.fb='';
+    const sc=$('sc');sc.classList.add('hit');$('hpf').style.width='0%';$('hpn').textContent='0/1';
+    setTimeout(()=>{sc.classList.add('dead')},500);
+    setTimeout(()=>{render()},1400);
+    return;
+  }
+  s.wrong++;if(hearts>0)hearts--;
+  let h=`<div class="fb no"><h3>🛡️ 막혔다! 몬스터의 반격 (−❤️)</h3><ul>${r.m.map(x=>`<li>${x}</li>`).join('')}</ul>
+   <div class="hintbox"><b>💡 힌트</b> ${esc(q.hint)}</div>`;
+  h+=s.wrong>=2?`<div class="model"><b>두 번 틀렸으니 정답을 알려 줄게요:</b><br>${esc(q.model)}<br><span style="font-size:14px;color:var(--soft)">정답을 직접 입력해서 공격하세요!</span></div>`:
+    `<p style="margin:8px 0 0;font-size:14px">힌트를 보고 다시 공격! 한 번 더 막히면 정답이 공개돼요.</p>`;
+  s.fb=h+'</div>';
+  render();
+  const sc=$('sc');sc.classList.remove('ouch');void sc.offsetWidth;sc.classList.add('ouch');
+  $('fb').scrollIntoView({behavior:'smooth',block:'nearest'});
+}
+
+function result(){
+  const star=hearts>=5?3:hearts>=3?2:1;
+  $('app').innerHTML=`<div class="card" style="text-align:center"><h2>🏆 모든 몬스터 격파!</h2>
+   <div class="stars" aria-label="별 ${star}개">${'⭐'.repeat(star)}${'☆'.repeat(3-star)}</div>
+   <p>남은 하트 ${'❤️'.repeat(hearts)||'0개'} · ${star===3?'완벽해요! 시험 준비 끝!':star===2?'아주 잘했어요! 틀린 부분만 다시 확인해요.':'끝까지 해낸 것이 대단해요! 한 번 더 도전해 볼까요?'}</p>
+   <table class="res" style="width:100%;text-align:left;border-collapse:collapse;font-size:15px">${M.map((q,i)=>`<tr><td style="white-space:nowrap">${q.mon}</td><td>${esc(st[i].ans)}</td></tr>`).join('')}</table>
+   <div class="nav" style="justify-content:center"><button class="b" id="again">다시 도전하기</button></div></div>`;
+  $('again').onclick=()=>{st.forEach(s=>{s.ans='';s.done=false;s.wrong=0;s.checks=null;s.fb=''});cur=0;hearts=5;view='intro';render();window.scrollTo({top:0})};
+}
+
+render();
+}
+</script>
+</body>
+</html>
